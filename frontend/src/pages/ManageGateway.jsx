@@ -5,7 +5,9 @@ import ClientKeys from '../components/ClientKeys.jsx'
 import { GatewayInsights } from '../components/GatewayInsights.jsx'
 
 export default function ManageGateway({ service, config, finish }) {
-  const [enabled, setEnabled] = useState(service.enabled !== false)
+  const [status, setStatus] = useState(service)
+  const [showMaintenance, setShowMaintenance] = useState(false)
+  const enabled = status.enabled !== false
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const endpoint = 'services/' + service._id
@@ -21,13 +23,21 @@ export default function ManageGateway({ service, config, finish }) {
       setBusy(false)
     }
   }
-  async function toggle() {
-    const result = await api(
-      endpoint + '/status',
-      { enabled: !enabled },
-      'PATCH',
+  async function changeStatus(settings) {
+    setStatus(await api(endpoint + '/status', settings, 'PATCH'))
+    setShowMaintenance(false)
+  }
+  function saveMaintenance(event) {
+    event.preventDefault()
+    const fields = new FormData(event.currentTarget)
+    const time = fields.get('expectedRecoveryAt')
+    act(() =>
+      changeStatus({
+        enabled: false,
+        maintenanceMessage: fields.get('maintenanceMessage'),
+        expectedRecoveryAt: time ? new Date(time).toISOString() : null,
+      }),
     )
-    setEnabled(result.enabled)
   }
   async function rotate() {
     if (
@@ -56,11 +66,35 @@ export default function ManageGateway({ service, config, finish }) {
     <>
       <section className="panel registration">
         <h2>{service.name}</h2>
-        <p role="status">{enabled ? 'Enabled' : 'Paused'}</p>
+        <p role="status">{enabled ? 'Enabled' : 'In maintenance'}</p>
+        {!enabled && (
+          <>
+            <p>{status.maintenanceMessage || 'Gateway paused.'}</p>
+            {status.expectedRecoveryAt && (
+              <p>
+                Expected recovery{' '}
+                {new Date(status.expectedRecoveryAt).toLocaleString()}
+              </p>
+            )}
+          </>
+        )}
         <div className="gateway-actions">
-          <button disabled={busy} onClick={() => act(toggle)}>
-            {enabled ? 'Pause gateway' : 'Resume gateway'}
+          <button
+            disabled={busy}
+            onClick={() => setShowMaintenance((open) => !open)}
+            aria-expanded={showMaintenance}
+          >
+            {enabled ? 'Configure maintenance' : 'Edit maintenance'}
           </button>
+          {!enabled && (
+            <button
+              disabled={busy}
+              className="secondary"
+              onClick={() => act(() => changeStatus({ enabled: true }))}
+            >
+              Resume gateway
+            </button>
+          )}
           <button
             disabled={busy}
             className="secondary"
@@ -76,6 +110,34 @@ export default function ManageGateway({ service, config, finish }) {
             Delete gateway
           </button>
         </div>
+        {showMaintenance && (
+          <form className="maintenance-form" onSubmit={saveMaintenance}>
+            <label>
+              Maintenance message
+              <input
+                name="maintenanceMessage"
+                maxLength={500}
+                defaultValue={status.maintenanceMessage}
+                placeholder="Gateway paused."
+              />
+            </label>
+            <label>
+              Expected recovery (local time)
+              <input
+                type="datetime-local"
+                name="expectedRecoveryAt"
+                defaultValue={localDateTime(status.expectedRecoveryAt)}
+              />
+            </label>
+            <small>
+              Optional. Resume the gateway manually when maintenance is
+              complete.
+            </small>
+            <button disabled={busy}>
+              {enabled ? 'Pause gateway' : 'Save maintenance details'}
+            </button>
+          </form>
+        )}
         <p role="alert">{error}</p>
       </section>
       <nav className="gateway-actions" aria-label="Gateway tools">
@@ -99,4 +161,12 @@ export default function ManageGateway({ service, config, finish }) {
       )}
     </>
   )
+}
+
+function localDateTime(value) {
+  if (!value) return ''
+  const date = new Date(value)
+  return new Date(date.getTime() - date.getTimezoneOffset() * 60000)
+    .toISOString()
+    .slice(0, 16)
 }

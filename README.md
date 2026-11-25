@@ -28,6 +28,8 @@ Run `npm.cmd run build` from the root to create the frontend production bundle.
 
 ## Demonstrate a gateway
 
+Open **Manage gateway → Configure maintenance** to pause routing with a custom message and an optional expected recovery time. Requests with a valid key receive HTTP 503 and the message. A future recovery time is included in the response and sets `Retry-After` in seconds. Choose **Resume gateway** when maintenance is complete. The expected time is advisory.
+
 Under **Manage gateway**, open **Client keys** to issue a named key for each consumer. Copy the key when it appears and send it in the `X-API-Key` header. Revoking a named key leaves the other consumers connected. Existing shared keys appear as the default key and can be revoked after clients switch.
 
 **History** shows the actor, timestamp and details for changes such as upstream edits, pauses and key rotation. Each gateway retains its latest 250 audit entries.

@@ -95,15 +95,58 @@ export async function editService(req, res) {
 export async function setEnabled(req, res) {
   if (typeof req.body?.enabled !== 'boolean')
     throw new HttpError(400, 'Choose enabled or paused.')
+  const {
+    enabled,
+    maintenanceMessage = '',
+    expectedRecoveryAt = null,
+  } = req.body
+  if (
+    typeof maintenanceMessage !== 'string' ||
+    maintenanceMessage.trim().length > 500
+  )
+    throw new HttpError(
+      400,
+      'Enter a maintenance message of up to 500 characters.',
+    )
+  let recovery = null
+  if (!enabled && expectedRecoveryAt !== null) {
+    if (
+      typeof expectedRecoveryAt !== 'string' ||
+      !/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/.test(expectedRecoveryAt)
+    )
+      throw new HttpError(400, 'Enter a valid recovery time.')
+    recovery = new Date(expectedRecoveryAt)
+    if (
+      !(recovery.getTime() > Date.now()) ||
+      recovery.toISOString() !== expectedRecoveryAt
+    )
+      throw new HttpError(400, 'Enter a valid future recovery time.')
+  }
+  const message = enabled ? '' : maintenanceMessage.trim()
+  const details = [
+    message,
+    recovery && 'Expected recovery: ' + recovery.toISOString(),
+  ]
+    .filter(Boolean)
+    .join(' | ')
   const result = await Service.updateOne(ownerFilter(req), {
-    $set: { enabled: req.body.enabled },
+    $set: {
+      enabled,
+      maintenanceMessage: message,
+      expectedRecoveryAt: recovery,
+    },
     $push: auditPush(
       req.userId,
-      req.body.enabled ? 'Gateway resumed' : 'Gateway paused',
+      enabled ? 'Gateway resumed' : 'Gateway paused',
+      details,
     ),
   })
   if (!result.matchedCount) throw new HttpError(404, 'Gateway not found.')
-  res.json({ enabled: req.body.enabled })
+  res.json({
+    enabled,
+    maintenanceMessage: message,
+    expectedRecoveryAt: recovery,
+  })
 }
 export async function rotateKey(req, res) {
   const { key, keyHash } = issueKey()

@@ -22,8 +22,20 @@ export async function proxy(req, res) {
   }
   if (!['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method))
     return res.sendStatus(405)
-  if (!service.enabled)
-    return res.status(503).json({ error: 'Gateway paused.' })
+  if (!service.enabled) {
+    const remaining =
+      service.expectedRecoveryAt &&
+      service.expectedRecoveryAt.getTime() - Date.now()
+    res.set('Cache-Control', 'no-store')
+    if (remaining > 0)
+      res.set('Retry-After', String(Math.ceil(remaining / 1000)))
+    return res.status(503).json({
+      error: service.maintenanceMessage || 'Gateway paused.',
+      ...(service.expectedRecoveryAt && {
+        expectedRecoveryAt: service.expectedRecoveryAt,
+      }),
+    })
+  }
   const delay = retryAfter(service, runtime, req.ip)
   if (delay) {
     await signal(service, runtime, 'Repeated rate-limit violations', 3)

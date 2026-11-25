@@ -8,6 +8,8 @@ export const Service = model(
     algorithm: String,
     limit: Number,
     enabled: { type: Boolean, default: true },
+    maintenanceMessage: String,
+    expectedRecoveryAt: Date,
     limiter: { type: String, default: 'sliding-window' },
     nodes: [{ _id: false, origin: String, weight: Number, backup: Boolean }],
     keyHash: { type: String, select: false },

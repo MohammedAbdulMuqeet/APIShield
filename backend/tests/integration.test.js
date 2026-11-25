@@ -124,7 +124,18 @@ test(
         await page.getByLabel('Service name').inputValue(),
         'Browser gateway',
       )
+      await page.getByRole('button', { name: 'Configure maintenance' }).click()
+      await page
+        .getByLabel('Maintenance message')
+        .fill('Updating the browser gateway')
       await page.getByRole('button', { name: 'Pause gateway' }).click()
+      await page
+        .getByText('Updating the browser gateway', { exact: true })
+        .waitFor()
+      await page.reload()
+      await page
+        .getByText('Updating the browser gateway', { exact: true })
+        .waitFor()
       await page.getByRole('button', { name: 'Resume gateway' }).click()
       await page.getByLabel('Service name').fill('Updated browser gateway')
       await page.getByRole('button', { name: 'Save changes' }).click()
@@ -266,7 +277,47 @@ test(
       200,
     )
     assert.equal((await gateway(weighted)).status, 503)
+    const expectedRecoveryAt = new Date(Date.now() + 3600000).toISOString()
+    assert.equal(
+      (
+        await api(
+          endpoint + '/status',
+          {
+            enabled: false,
+            maintenanceMessage: ' Updating Orders ',
+            expectedRecoveryAt,
+          },
+          'PATCH',
+        )
+      ).status,
+      200,
+    )
+    const maintenance = await gateway(weighted)
+    assert.equal(maintenance.status, 503)
+    assert.ok(Number(maintenance.headers.get('retry-after')) > 0)
+    assert.deepEqual(await maintenance.json(), {
+      error: 'Updating Orders',
+      expectedRecoveryAt,
+    })
+    assert.equal((await gateway(weighted, 'invalid')).status, 401)
+    assert.equal(
+      (
+        await api(
+          endpoint + '/status',
+          {
+            enabled: false,
+            expectedRecoveryAt: new Date(0).toISOString(),
+          },
+          'PATCH',
+        )
+      ).status,
+      400,
+    )
     await api(endpoint + '/status', { enabled: true }, 'PATCH')
+    const resumed = await (await api(endpoint)).json()
+    assert.equal(resumed.expectedRecoveryAt, null)
+    assert.equal(resumed.maintenanceMessage, '')
+    assert.equal((await gateway(weighted)).status, 200)
     const renewed = await (await api(endpoint + '/key', {})).json()
     assert.equal((await gateway(weighted)).status, 401)
     assert.equal((await gateway(renewed)).status, 200)
