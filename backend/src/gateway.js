@@ -1,7 +1,8 @@
 import express from 'express'
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto'
-import { Service, Event } from './models.js'
-import { signedIn } from './auth.js'
+import { Service } from './models/Service.js'
+import { Event } from './models/Event.js'
+import { signedIn } from './middleware/signedIn.js'
 
 export const management = express.Router()
 export const gateway = express.Router()
