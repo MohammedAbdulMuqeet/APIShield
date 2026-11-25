@@ -1,0 +1,17 @@
+{
+  "name": "@apishield/frontend",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build"
+  },
+  "dependencies": {
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "playwright-core": "^1.65.1",
+    "vite": "^7.0.0"
+  }
+}
