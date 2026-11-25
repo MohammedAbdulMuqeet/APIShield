@@ -2,6 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import http from 'node:http'
 import { spawn } from 'node:child_process'
+import { execFileSync } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import { once } from 'node:events'
 import { setTimeout as delay } from 'node:timers/promises'
@@ -85,9 +86,17 @@ test(
       await page.getByLabel('Email').fill('browser@example.test')
       await page.getByLabel('Password').fill('browser password 123')
       await page.getByRole('button', { name: 'Create account' }).click()
+      await page.getByRole('link', { name: 'Register gateway' }).click()
       await page.getByLabel('Service name').fill('Browser gateway')
+      await page.getByRole('button', { name: 'Add upstream node' }).click()
+      await page.getByLabel('Server origin').last().fill(origins[1])
+      await page.getByLabel('Load balancing').selectOption('power-of-two')
       await page.getByRole('button', { name: 'Register gateway' }).click()
       await page.getByRole('heading', { name: 'Browser gateway' }).waitFor()
+      assert.equal(await page.getByLabel('Service name').count(), 0)
+      await page.getByRole('link', { name: 'Incidents' }).click()
+      await page.getByText('No events recorded.').waitFor()
+      await page.goBack()
       await page.reload()
       await page.getByRole('heading', { name: 'Browser gateway' }).waitFor()
       await page.getByRole('button', { name: 'Sign out' }).click()
@@ -168,6 +177,29 @@ test(
     )
     assert.equal(services[0].keyHash, undefined)
     unavailable = false
+    for (const algorithm of ['random', 'power-of-two']) {
+      const service = await register(algorithm, 100)
+      assert.match(await (await gateway(service)).text(), /^[ab] GET/)
+    }
+    const custom = {
+      name: 'Custom',
+      algorithm: 'random',
+      limit: 60,
+      nodes: [
+        { origin: 'https://orders.example.test', weight: 1, backup: false },
+      ],
+    }
+    assert.equal((await api('services', custom)).status, 400)
+    execFileSync(
+      process.execPath,
+      [
+        fileURLToPath(new URL('../src/approve-upstream.js', import.meta.url)),
+        account.email,
+        custom.nodes[0].origin,
+      ],
+      { env: { ...process.env, MONGODB_URI: uri } },
+    )
+    assert.equal((await api('services', custom)).status, 201)
     for (const policy of ['sliding-window', 'token-bucket']) {
       const limited = await register('round-robin', 2, policy)
       for (const name of ['a', 'b'])
@@ -196,6 +228,7 @@ test(
       email: 'other@example.test',
     })
     cookie = other.headers.get('set-cookie').split(';')[0]
+    assert.equal((await api('services', custom)).status, 400)
     assert.deepEqual(await (await api('services')).json(), [])
     assert.deepEqual(await (await api('events')).json(), [])
   },

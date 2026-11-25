@@ -3,7 +3,12 @@ import { Service } from '../models/Service.js'
 import { Event } from '../models/Event.js'
 import { state, circuit } from '../services/routing.js'
 import { registerService } from '../services/registration.js'
-export const config = (_req, res) => res.json({ origins: allowed, algorithms })
+export const config = (_req, res) =>
+  res.json({
+    origins: allowed,
+    algorithms,
+    localDemoPorts: !process.env.UPSTREAM_ORIGINS,
+  })
 export async function listServices(req, res) {
   const services = await Service.find({ owner: req.userId })
   res.json(

@@ -58,6 +58,10 @@ With MongoDB running on the default local port, run `npm.cmd test`. Set `TEST_BR
 
 ## Code layout
 
+Home (`/`) shows your gateways and current counters. Open `/register` to add a gateway or `/incidents` to review recorded events. Random routing chooses an eligible node uniformly. Power-of-two routing samples two distinct eligible nodes and uses the one with fewer active requests.
+
+Use **Add upstream node** on the registration page to enter your own origin. The default local setup accepts HTTP demo servers on 127.0.0.1 ports 4100–4199. For example, start `node backend/src/demo.js 4110` and enter `http://127.0.0.1:4110`. When UPSTREAM_ORIGINS is explicitly set, it replaces that demo policy. To authorize another trusted HTTP(S) origin for just one existing account, run `npm run approve-upstream -- YOUR_EMAIL https://orders.example.com` on the APIShield host. The grant is stored in MongoDB and takes effect immediately.
+
 | Location | Responsibility |
 | --- | --- |
 | backend/src/server.js | Connect to MongoDB, initialize indexes and start listening. |

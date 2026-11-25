@@ -93,3 +93,4 @@ code { display: block; background: #101116; border: 1px solid var(--edge); borde
   dd { font-size:24px; }
   .panel { padding:17px; }
 }
+nav a[aria-current="page"] { color: var(--gold); text-decoration: underline; } .page-content, .registration { margin-top: 24px; } .registration { max-width: 760px; } .node .origin-field { grid-column: 1/-1; } .page-content p { margin-bottom: 16px; }
