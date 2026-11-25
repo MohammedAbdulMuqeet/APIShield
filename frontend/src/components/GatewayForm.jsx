@@ -46,6 +46,8 @@ export default function GatewayForm({ config, service, saved }) {
             limit: Number(data.get('limit')),
             limiter: data.get('limiter'),
             nodes,
+            healthChecks: data.get('healthChecks') === 'on',
+            healthPath: data.get('healthPath') || '/',
           },
           service ? 'PUT' : 'POST',
         ),
@@ -100,6 +102,25 @@ export default function GatewayForm({ config, service, saved }) {
             required
           />
         </label>
+        <fieldset>
+          <legend>Active health checks</legend>
+          <label>
+            <input
+              style={{ width: 'auto', justifySelf: 'start' }}
+              type="checkbox"
+              name="healthChecks"
+              defaultChecked={service?.healthChecks}
+            />
+            Probe upstreams every 30 seconds
+          </label>
+          <label>
+            Health check path
+            <input
+              name="healthPath"
+              defaultValue={service?.healthPath || '/'}
+            />
+          </label>
+        </fieldset>
         <fieldset>
           <legend>Upstream nodes</legend>
           <p>

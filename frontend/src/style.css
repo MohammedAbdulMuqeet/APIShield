@@ -95,3 +95,8 @@ code { display: block; background: #101116; border: 1px solid var(--edge); borde
 }
 nav a[aria-current="page"] { color: var(--gold); text-decoration: underline; } .page-content, .registration { margin-top: 24px; } .registration { max-width: 760px; } .node .origin-field { grid-column: 1/-1; } .page-content p { margin-bottom: 16px; }
 .gateway-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+.trend-bars { display:flex;align-items:flex-end;height:64px;border-bottom:1px solid var(--edge);gap:1px; }
+.trend-bars i { flex:1;min-width:0;background:var(--gold); }
+figure { margin:1rem 0; }
+.panel details { overflow-x:auto; }
+.panel table { width:100%;text-align:left;font-size:.85rem; }

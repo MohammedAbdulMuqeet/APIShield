@@ -7,6 +7,7 @@ import { issueKey } from './keys.js'
 import { UpstreamGrant } from '../models/UpstreamGrant.js'
 import { Service } from '../models/Service.js'
 import { HttpError } from '../middleware/errors.js'
+import { auditEntry } from './audit.js'
 const inRange = (value, min, max) =>
   Number.isInteger(value) && value >= min && value <= max
 function validNodes(nodes) {
@@ -29,8 +30,9 @@ export async function validateSettings(owner, settings) {
   const nodes =
     Array.isArray(settings.nodes) &&
     settings.nodes.map((node) => ({
-      ...node,
       origin: normalizeOrigin(node?.origin),
+      weight: node?.weight,
+      backup: node?.backup,
     }))
   const validName = typeof name === 'string' && name.trim() && name.length <= 80
   if (
@@ -57,11 +59,31 @@ export async function validateSettings(owner, settings) {
       'This upstream needs approval for your account. See the custom server instructions below.',
     )
   }
-  return { name: name.trim(), nodes, algorithm, limit, limiter }
+  const { healthChecks = false, healthPath = '/' } = settings
+  if (
+    typeof healthChecks !== 'boolean' ||
+    typeof healthPath !== 'string' ||
+    !/^\/(?!\/)[A-Za-z0-9_./~-]{0,199}$/.test(healthPath)
+  )
+    throw new HttpError(400, 'Enter a health check path such as /health.')
+  return {
+    name: name.trim(),
+    nodes,
+    algorithm,
+    limit,
+    limiter,
+    healthChecks,
+    healthPath,
+  }
 }
-export async function registerService(owner, settings) {
+export async function registerService(owner, settings, actor = owner) {
   const config = await validateSettings(owner, settings)
   const { key, keyHash } = issueKey()
-  const service = await Service.create({ ...config, owner, keyHash })
+  const service = await Service.create({
+    ...config,
+    owner,
+    keyHash,
+    audit: [auditEntry(actor, 'Gateway created', config.name)],
+  })
   return { id: service.id, key }
 }

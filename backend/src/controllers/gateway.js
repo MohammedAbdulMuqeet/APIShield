@@ -1,16 +1,22 @@
 import { Service } from '../models/Service.js'
-import { matchesKey } from '../services/keys.js'
+import { identifyClient } from '../services/keys.js'
+import { observeRequest } from '../services/measurements.js'
 import { signal } from '../services/incidents.js'
 import { retryAfter } from '../services/rateLimit.js'
 import { state } from '../services/routing.js'
 import { forward } from '../services/forward.js'
 export async function proxy(req, res) {
+  const started = performance.now()
   const service =
     /^[a-f\d]{24}$/i.test(req.params.id) &&
-    (await Service.findById(req.params.id).select('+keyHash'))
+    (await Service.findOne({ _id: req.params.id, deletedAt: null }).select(
+      '+keyHash +clientKeys',
+    ))
   if (!service) return res.status(404).json({ error: 'Unknown gateway.' })
   const runtime = state(service)
-  if (!matchesKey(req.get('x-api-key') || '', service.keyHash)) {
+  const sample = observeRequest(service, res, started)
+  sample.client = identifyClient(service, req.get('x-api-key'))
+  if (!sample.client) {
     await signal(service, runtime, 'Repeated invalid gateway keys', 5)
     return res.status(401).json({ error: 'Invalid gateway key.' })
   }
@@ -27,7 +33,7 @@ export async function proxy(req, res) {
       .json({ error: 'Request limit reached.' })
   }
 
-  const result = await forward(service, runtime, req)
+  const result = await forward(service, runtime, req, sample)
   if (result.error)
     return res.status(result.status).json({ error: result.error })
   res

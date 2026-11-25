@@ -48,6 +48,7 @@ test(
           PORT: String(port),
           MONGODB_URI: uri,
           UPSTREAM_ORIGINS: origins.join(','),
+          HEALTH_CHECK_INTERVAL_MS: '1000',
         },
         stdio: ['ignore', 'pipe', 'inherit'],
       },
@@ -105,6 +106,20 @@ test(
       await page.getByRole('button', { name: 'Sign in' }).click()
       await page.getByRole('heading', { name: 'Browser gateway' }).waitFor()
       await page.getByRole('link', { name: 'Manage gateway' }).click()
+      await page
+        .getByRole('button', { name: 'Client keys', exact: true })
+        .click()
+      await page.getByLabel('Client name').fill('Browser consumer')
+      await page.getByRole('button', { name: 'Issue client key' }).click()
+      await page
+        .getByRole('heading', { name: 'Save the key for Browser consumer' })
+        .waitFor()
+      await page.getByRole('button', { name: 'History', exact: true }).click()
+      await page.getByText('Client key issued', { exact: true }).waitFor()
+      await page.getByRole('button', { name: 'Trends', exact: true }).click()
+      await page.getByLabel('Time range').selectOption('24')
+      await page.getByRole('heading', { name: 'Traffic trends' }).waitFor()
+      await page.getByRole('button', { name: 'Settings', exact: true }).click()
       assert.equal(
         await page.getByLabel('Service name').inputValue(),
         'Browser gateway',
@@ -118,10 +133,11 @@ test(
         .waitFor()
     }
     let cookie = ''
+    let scope = {}
     function api(path, body, method = body ? 'POST' : 'GET') {
       return fetch(base + '/api/' + path, {
         method,
-        headers: { cookie, 'content-type': 'application/json' },
+        headers: { ...scope, cookie, 'content-type': 'application/json' },
         body: body && JSON.stringify(body),
       })
     }
@@ -254,6 +270,68 @@ test(
     const renewed = await (await api(endpoint + '/key', {})).json()
     assert.equal((await gateway(weighted)).status, 401)
     assert.equal((await gateway(renewed)).status, 200)
+    const clients = endpoint + '/clients'
+    const firstClient = await (await api(clients, { name: 'Mobile' })).json()
+    const secondClient = await (await api(clients, { name: 'Web' })).json()
+    const requestAs = (key) => gateway(weighted, key)
+    assert.equal((await requestAs(firstClient.key)).status, 200)
+    assert.equal(
+      (await api(clients + '/' + firstClient.id, {}, 'DELETE')).status,
+      204,
+    )
+    assert.equal((await requestAs(firstClient.key)).status, 401)
+    assert.equal((await requestAs(secondClient.key)).status, 200)
+    const history = await (await api(endpoint + '/audit')).json()
+    for (const action of [
+      'Gateway settings saved',
+      'Gateway paused',
+      'Default key rotated',
+      'Client key revoked',
+    ]) {
+      assert.ok(
+        history.some(
+          (entry) =>
+            entry.action === action &&
+            entry.actor === account.email &&
+            entry.at,
+        ),
+      )
+    }
+    assert.ok(!JSON.stringify(history).includes(firstClient.key))
+    const latest = await (await api(endpoint)).json()
+    assert.equal(
+      (
+        await api(
+          endpoint,
+          {
+            ...latest,
+            version: latest.__v,
+            healthChecks: true,
+            healthPath: '/health',
+          },
+          'PUT',
+        )
+      ).status,
+      204,
+    )
+    async function waitForHealth(expected) {
+      for (let attempt = 0; attempt < 35; attempt++) {
+        const rows = await (await api('services')).json()
+        const node = rows.find((row) => row._id === weighted.id).nodes[0]
+        if (node.health === expected && node.checkedAt) return
+        await delay(150)
+      }
+      assert.fail('Expected idle upstream health ' + expected)
+    }
+    await waitForHealth('Healthy')
+    unavailable = true
+    await waitForHealth('Unhealthy')
+    unavailable = false
+    await waitForHealth('Healthy')
+    const trends = await (await api(endpoint + '/trends?hours=1')).json()
+    assert.equal(trends.length, 60)
+    assert.ok(trends.some((bucket) => bucket.requests > 0 && bucket.errors > 0))
+    assert.ok(trends.some((bucket) => bucket.p95 > 0))
     const ownerCookie = cookie
     const other = await api('auth/signup', {
       ...account,
@@ -271,7 +349,51 @@ test(
       404,
     )
     assert.equal((await api(endpoint, {}, 'DELETE')).status, 404)
+    const memberCookie = cookie
     cookie = ownerCookie
+    const team = await (await api('workspaces', { name: 'Operations' })).json()
+    scope = { 'X-Workspace-Id': team.id }
+    assert.deepEqual(await (await api('services')).json(), [])
+    assert.deepEqual(await (await api('events')).json(), [])
+    const shared = await register('random', 100)
+    const invite = await (
+      await api('workspaces/' + team.id + '/invitations', {
+        email: 'other@example.test',
+        role: 'viewer',
+      })
+    ).json()
+    assert.equal((await api('workspaces/join', invite)).status, 404)
+    cookie = memberCookie
+    assert.equal((await api('services')).status, 403)
+    assert.equal((await api('workspaces/join', invite)).status, 200)
+    assert.equal((await api('workspaces/join', invite)).status, 404)
+    assert.equal((await api('services/' + shared.id)).status, 200)
+    const sharedHistory = await (await api('audit')).json()
+    assert.equal(sharedHistory.length, 1)
+    assert.equal(sharedHistory[0].action, 'Gateway created')
+    assert.equal((await api(endpoint + '/audit')).status, 404)
+    assert.equal((await api(endpoint)).status, 404)
+    assert.equal((await api('services/' + shared.id + '/key', {})).status, 403)
+    assert.equal(
+      (await api('workspaces/' + team.id + '/invitations', {})).status,
+      403,
+    )
+    cookie = ownerCookie
+    const [workspace] = await (await api('workspaces')).json()
+    const memberPath =
+      'workspaces/' + team.id + '/members/' + workspace.members[0].id
+    assert.equal(
+      (await api(memberPath, { role: 'editor' }, 'PATCH')).status,
+      204,
+    )
+    cookie = memberCookie
+    assert.equal((await api('services/' + shared.id + '/key', {})).status, 200)
+    cookie = ownerCookie
+    assert.equal((await api(memberPath, {}, 'DELETE')).status, 204)
+    cookie = memberCookie
+    assert.equal((await api('services')).status, 403)
+    cookie = ownerCookie
+    scope = {}
     assert.equal((await api(endpoint, {}, 'DELETE')).status, 204)
     assert.equal((await gateway(renewed)).status, 404)
   },

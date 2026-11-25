@@ -1,12 +1,15 @@
 import React, { useState } from 'react'
 import GatewayForm from '../components/GatewayForm.jsx'
 import { api } from '../api.js'
+import ClientKeys from '../components/ClientKeys.jsx'
+import { GatewayInsights } from '../components/GatewayInsights.jsx'
 
 export default function ManageGateway({ service, config, finish }) {
   const [enabled, setEnabled] = useState(service.enabled !== false)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const endpoint = 'services/' + service._id
+  const [tab, setTab] = useState('Settings')
   async function act(action) {
     setBusy(true)
     setError('')
@@ -63,7 +66,7 @@ export default function ManageGateway({ service, config, finish }) {
             className="secondary"
             onClick={() => act(rotate)}
           >
-            Rotate API key
+            Rotate default API key
           </button>
           <button
             disabled={busy}
@@ -75,7 +78,25 @@ export default function ManageGateway({ service, config, finish }) {
         </div>
         <p role="alert">{error}</p>
       </section>
-      <GatewayForm service={service} config={config} saved={() => finish()} />
+      <nav className="gateway-actions" aria-label="Gateway tools">
+        {['Settings', 'Client keys', 'History', 'Trends'].map((name) => (
+          <button
+            className="secondary"
+            aria-pressed={name === tab}
+            key={name}
+            onClick={() => setTab(name)}
+          >
+            {name}
+          </button>
+        ))}
+      </nav>
+      {tab === 'Settings' ? (
+        <GatewayForm service={service} config={config} saved={() => finish()} />
+      ) : tab === 'Client keys' ? (
+        <ClientKeys service={service} endpoint={endpoint} />
+      ) : (
+        <GatewayInsights endpoint={endpoint} tab={tab} />
+      )}
     </>
   )
 }

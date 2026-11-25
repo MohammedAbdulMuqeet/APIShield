@@ -28,6 +28,14 @@ Run `npm.cmd run build` from the root to create the frontend production bundle.
 
 ## Demonstrate a gateway
 
+Under **Manage gateway**, open **Client keys** to issue a named key for each consumer. Copy the key when it appears and send it in the `X-API-Key` header. Revoking a named key leaves the other consumers connected. Existing shared keys appear as the default key and can be revoked after clients switch.
+
+**History** shows the actor, timestamp and details for changes such as upstream edits, pauses and key rotation. Each gateway retains its latest 250 audit entries.
+
+Enable **Active health checks** in gateway settings and specify an endpoint such as `/health`. APIShield probes each configured node every 30 seconds by default and shows its last result on Home. A successful HTTP response marks the node healthy. Probe status and circuit-breaker state are displayed separately.
+
+**Trends** shows completed request volume, upstream HTTP 5xx as a share of forwarding attempts, and approximate p95 gateway latency. Retries count as upstream attempts and health probes are excluded. MongoDB retains request measurements for seven days.
+
 On Home, open **Manage gateway** on a service card to edit its name, routing algorithm, rate policy or upstream nodes. Saving keeps its URL and key. Pause temporarily returns HTTP 503 to clients with a valid key. Resume restores routing. Rotating a key invalidates the old one and displays the replacement once. Deleting a gateway removes its route. Only its owner can perform these actions.
 
 Start three lightweight upstreams in separate terminals from the project root.
@@ -77,3 +85,11 @@ Use **Add upstream node** on the registration page to enter your own origin. The
 | backend/tests | Exercise the application through HTTP and optionally through a browser. |
 
 The dashboard uses a session cookie to manage its owner's gateways. A client calling a registered gateway uses the service's API key. A request goes through key verification, rate limiting, node selection and forwarding in that order. The console reads per-node counters and saved incidents through the authenticated management routes.
+
+## Team workspaces
+
+Open **Manage workspaces**, enter an organization name, and choose **Create workspace**. The workspace selector switches between organizations and your personal gateways. Existing gateways and incidents stay in the personal workspace.
+
+Owners can create invitations for an email address, change member roles, and remove members or pending invitations. Share the invitation code privately. The invitee signs in with the matching email and enters the code under **Manage workspaces**. Codes expire after seven days and can be used once. Editors can manage gateways and keys. Viewers can read gateway metrics and incidents.
+
+The selected workspace ID appears in the console URL. Management API clients send it in the `X-Workspace-Id` header on gateway, incident, and configuration history requests. Omit the header for your personal workspace. To approve a custom origin for a team, run `npm run approve-upstream -- workspace:WORKSPACE_ID https://orders.example.com`.

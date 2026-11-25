@@ -1,10 +1,11 @@
 import React from 'react'
+import { workspacePath } from '../api.js'
 const circuitLabels = {
   closed: 'Closed (routing allowed)',
   open: 'Open (temporarily skipped)',
   'half-open': 'Half-open (recovery probe)',
 }
-export default function GatewayHome({ services, secret, dismiss }) {
+export default function GatewayHome({ services, secret, dismiss, writable }) {
   return (
     <>
       <dl className="summary">
@@ -52,7 +53,7 @@ export default function GatewayHome({ services, secret, dismiss }) {
               <h3>{s.name}</h3>
               <p>
                 {s.enabled === false ? 'Paused' : 'Enabled'} ·{' '}
-                <a href={'/manage/' + s._id}>Manage gateway</a>
+                {writable && <a href={workspacePath('/manage/' + s._id)}>Manage gateway</a>}
               </p>
               <code>/gateway/{s._id}/</code>
               <p>
@@ -68,6 +69,7 @@ export default function GatewayHome({ services, secret, dismiss }) {
                     </span>
                     <span>{n.requests} attempts</span>
                     <span>{n.active} active</span>
+                    {s.healthChecks && <span>Probe: {n.health}{n.checkedAt && ' · '+new Date(n.checkedAt).toLocaleTimeString()}</span>}
                   </div>
                 </div>
               ))}

@@ -1,7 +1,7 @@
 import { pick } from './routing.js'
 import { record } from './incidents.js'
 const canRetry = (method) => method === 'GET' || method === 'HEAD'
-async function requestNode(node, req) {
+async function requestNode(node, req, sample) {
   const url = new URL(node.origin)
   const path = req.url.split('?')[0]
   url.pathname = path
@@ -16,6 +16,7 @@ async function requestNode(node, req) {
     },
     body: canRetry(req.method) ? undefined : req.body,
   })
+  if (result.status >= 500) sample.upstream5xx++
   if (Number(result.headers.get('content-length')) > 4194304)
     throw Error('Response too large')
   const chunks = []
@@ -57,7 +58,7 @@ async function trackResult(service, runtime, node, wasProbe, failed) {
     }
   }
 }
-export async function forward(service, runtime, req) {
+export async function forward(service, runtime, req, sample) {
   const attempted = new Set()
   while (attempted.size < runtime.nodes.length) {
     const node = pick(runtime, service.algorithm, attempted)
@@ -67,9 +68,10 @@ export async function forward(service, runtime, req) {
     if (wasProbe) node.probing = true
     node.active++
     node.requests++
+    sample.attempts++
     let result
     try {
-      result = await requestNode(node, req)
+      result = await requestNode(node, req, sample)
     } catch {
       result = null
     } finally {

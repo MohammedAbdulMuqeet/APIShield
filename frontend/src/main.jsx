@@ -18,7 +18,8 @@ function App() {
       )
   }, [])
   function change(next) {
-    history.replaceState({}, '', next ? '/' : '/login')
+    if (!next) { location.replace('/login'); return }
+    history.replaceState({}, '', '/')
     setUser(next)
   }
   if (user === undefined) return <main>{error || 'Connecting…'}</main>

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
-import { api } from '../api.js'
+import Workspaces, { selectWorkspace } from '../components/Workspaces.jsx'
+import { api, workspaceId, workspacePath } from '../api.js'
 import GatewayForm from '../components/GatewayForm.jsx'
 import { Brand, GatewayGraphic } from '../components/Identity.jsx'
 
@@ -20,6 +21,11 @@ const pages = {
   },
 }
 export default function GatewayConsole({ user, leave }) {
+  const [spaces, setSpaces] = useState([])
+  const reloadSpaces = () => api('workspaces').then(setSpaces)
+  useEffect(() => { reloadSpaces().catch(err => setError(err.message)) }, [])
+  const current = spaces.find(space => space.id === workspaceId)
+  const writable = !workspaceId || ['owner', 'editor'].includes(current?.role)
   const [snapshot, setSnapshot] = useState(null)
   const [secret, setSecret] = useState(null)
   const [error, setError] = useState('')
@@ -34,7 +40,7 @@ export default function GatewayConsole({ user, leave }) {
     return () => window.removeEventListener('popstate', sync)
   }, [])
   function navigate(destination) {
-    history.pushState({}, '', destination)
+    history.pushState({}, '', workspacePath(destination))
     setPath(destination)
   }
   useEffect(() => {
@@ -52,7 +58,7 @@ export default function GatewayConsole({ user, leave }) {
       } catch (err) {
         if (active) {
           if (err.status === 401) leave()
-          else setError(err.message)
+          else { setSnapshot(null); setError(err.message) }
         }
       }
       if (active && !manageId && path !== '/register')
@@ -69,10 +75,10 @@ export default function GatewayConsole({ user, leave }) {
       <header className="topbar">
         <Brand />
         <nav aria-label="Workspace">
-          {Object.entries(pages).map(([url, item]) => (
+          {Object.entries(pages).filter(([url]) => writable || url !== '/register').map(([url, item]) => (
             <a
               key={url}
-              href={url}
+              href={workspacePath(url)}
               aria-current={url === path ? 'page' : undefined}
               onClick={(event) => {
                 if (
@@ -105,12 +111,20 @@ export default function GatewayConsole({ user, leave }) {
           Sign out
         </button>
       </header>
+      <label>Workspace
+        <select value={workspaceId || ''} onChange={e => selectWorkspace(e.target.value)}>
+          <option value="">Personal workspace</option>
+          {workspaceId && !current && <option value={workspaceId}>Selected workspace</option>}
+          {spaces.map(s => <option key={s.id} value={s.id}>{s.name} ({s.role})</option>)}
+        </select>
+      </label>
+      <Workspaces current={current} reload={reloadSpaces} />
       <div className="hero">
         <h1>{page.title}</h1>
         <GatewayGraphic />
       </div>
       <p role="alert">{error}</p>
-      {snapshot?.path !== path ? (
+      {!writable && (manageId || path === '/register') ? <p>Editor access required.</p> : snapshot?.path !== path ? (
         !error && <p>Loading workspace…</p>
       ) : manageId ? (
         <ManageGateway
@@ -133,7 +147,7 @@ export default function GatewayConsole({ user, leave }) {
         <Incidents events={snapshot.data} />
       ) : (
         <GatewayHome
-          services={snapshot.data}
+          writable={writable} services={snapshot.data}
           secret={secret}
           dismiss={() => setSecret(null)}
         />
