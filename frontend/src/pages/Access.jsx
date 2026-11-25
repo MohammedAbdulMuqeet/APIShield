@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { api } from '../api.js'
+import { Brand, GatewayGraphic } from '../components/Identity.jsx'
 
 export default function Access({ enter }) {
   const signup = location.pathname === '/signup'
@@ -24,8 +25,12 @@ export default function Access({ enter }) {
   }
   return (
     <main className="access">
-      <div className="brand">APIShield</div>
-      <section>
+      <aside className="access-art">
+        <Brand />
+        <GatewayGraphic />
+        <h2>Secure APIs.<br />Monitor traffic.<br /><em>Control access.</em></h2>
+      </aside>
+      <section className="access-form">
         <h1>{signup ? 'Create an account' : 'Welcome back'}</h1>
         <form onSubmit={submit}>
           {signup && (

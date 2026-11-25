@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { api } from '../api.js'
 import GatewayForm from '../components/GatewayForm.jsx'
+import { Brand, GatewayGraphic } from '../components/Identity.jsx'
 
 export default function GatewayConsole({ user, leave }) {
   const [snapshot, setSnapshot] = useState(null)
@@ -35,9 +36,10 @@ export default function GatewayConsole({ user, leave }) {
   }, [revision])
   return (
     <main>
-      <header>
-        <b className="brand">APIShield</b>
-        <span>{user.name}</span>
+      <header className="topbar">
+        <Brand />
+        <nav aria-label="Workspace"><a href="#gateways">Gateways</a><a href="#incidents">Incidents</a><a href="#registration">Register</a></nav>
+        <span className="account">{user.name}</span>
         <button
           className="secondary"
           onClick={async () => {
@@ -52,17 +54,23 @@ export default function GatewayConsole({ user, leave }) {
           Sign out
         </button>
       </header>
-      <h1>Gateway console</h1>
+      <div className="hero"><h1>Gateway console</h1><GatewayGraphic /></div>
       <p role="alert">{error}</p>
       {snapshot ? (
+        <>
+        <dl className="summary">
+          <div><dt>Registered gateways</dt><dd>{snapshot.services.length}</dd></div>
+          <div><dt>Upstream assignments</dt><dd>{snapshot.services.reduce((count, service) => count + service.nodes.length, 0)}</dd></div>
+          <div><dt>Active requests</dt><dd>{snapshot.services.reduce((count, service) => count + service.nodes.reduce((total, node) => total + node.active, 0), 0)}</dd></div>
+        </dl>
         <div className="grid">
           <div>
-            <h2>Your gateways</h2>
+            <h2 id="gateways">Your gateways</h2>
             {!snapshot.services.length && (
               <p>Register a service to start routing traffic.</p>
             )}
             {secret && (
-              <section>
+              <section className="panel key-panel">
                 <h3>Save your gateway key</h3>
                 <p>Shown once. Send it in the X-API-Key header.</p>
                 <code>{secret.key}</code>
@@ -70,7 +78,7 @@ export default function GatewayConsole({ user, leave }) {
               </section>
             )}
             {snapshot.services.map((s) => (
-              <section key={s._id}>
+              <section className="panel service" key={s._id}>
                 <h3>{s.name}</h3>
                 <code>/gateway/{s._id}/</code>
                 <p>
@@ -79,15 +87,14 @@ export default function GatewayConsole({ user, leave }) {
                 {s.nodes.map((n) => (
                   <div className="metric" key={n.origin}>
                     <strong>{n.origin}</strong>
-                    <span>
-                      {n.backup ? 'Backup' : 'Primary'} · {n.circuit} ·{' '}
-                      {n.requests} attempts · {n.active} active
-                    </span>
+                    <div className="node-stats"><span>{n.backup ? 'Backup' : 'Primary'}</span>
+                      <span className={'circuit ' + n.circuit}>{n.circuit}</span>
+                      <span>{n.requests} attempts</span><span>{n.active} active</span></div>
                   </div>
                 ))}
               </section>
             ))}
-            <h2>Incident and recovery history</h2>
+            <h2 id="incidents">Incident and recovery history</h2>
             {snapshot.events.length ? (
               snapshot.events.map((e) => (
                 <article key={e._id}>
@@ -110,6 +117,7 @@ export default function GatewayConsole({ user, leave }) {
             }}
           />
         </div>
+        </>
       ) : (
         <p>Loading workspace…</p>
       )}

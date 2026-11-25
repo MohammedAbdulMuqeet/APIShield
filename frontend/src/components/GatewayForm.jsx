@@ -39,7 +39,7 @@ export default function GatewayForm({ config, saved }) {
     }
   }
   return (
-    <section>
+    <section id="registration" className="panel registration">
       <h2>Register a gateway</h2>
       <form onSubmit={submit}>
         <label>
