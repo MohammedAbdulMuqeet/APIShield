@@ -24,7 +24,7 @@ function validNodes(nodes) {
     new Set(nodes.map((node) => node.origin)).size === nodes.length
   )
 }
-export async function registerService(owner, settings) {
+export async function validateSettings(owner, settings) {
   const { name, algorithm, limit, limiter = 'sliding-window' } = settings
   const nodes =
     Array.isArray(settings.nodes) &&
@@ -44,7 +44,6 @@ export async function registerService(owner, settings) {
       400,
       'Check the service settings and select a primary node.',
     )
-  const { key, keyHash } = issueKey()
   const custom = nodes
     .map((node) => node.origin)
     .filter((origin) => !isPermittedOrigin(origin))
@@ -58,14 +57,11 @@ export async function registerService(owner, settings) {
       'This upstream needs approval for your account. See the custom server instructions below.',
     )
   }
-  const service = await Service.create({
-    owner,
-    name: name.trim(),
-    nodes,
-    algorithm,
-    limit,
-    limiter,
-    keyHash,
-  })
+  return { name: name.trim(), nodes, algorithm, limit, limiter }
+}
+export async function registerService(owner, settings) {
+  const config = await validateSettings(owner, settings)
+  const { key, keyHash } = issueKey()
+  const service = await Service.create({ ...config, owner, keyHash })
   return { id: service.id, key }
 }

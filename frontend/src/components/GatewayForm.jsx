@@ -1,17 +1,23 @@
 import React, { useState } from 'react'
 import { api } from '../api.js'
 
-export default function GatewayForm({ config, saved }) {
+export default function GatewayForm({ config, service, saved }) {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [rows, setRows] = useState(() =>
-    config.origins.map((origin, index) => ({
-      id: index,
-      origin,
-      role: index === 0 ? 'primary' : 'off',
-    })),
+    service
+      ? service.nodes.map((node, id) => ({
+          ...node,
+          id,
+          role: node.backup ? 'backup' : 'primary',
+        }))
+      : config.origins.map((origin, index) => ({
+          id: index,
+          origin,
+          role: index === 0 ? 'primary' : 'off',
+        })),
   )
-  const nextId = React.useRef(config.origins.length)
+  const nextId = React.useRef(rows.length)
   async function submit(e) {
     e.preventDefault()
     const form = e.currentTarget
@@ -31,13 +37,18 @@ export default function GatewayForm({ config, saved }) {
     setError('')
     try {
       saved(
-        await api('services', {
-          name: data.get('name'),
-          algorithm: data.get('algorithm'),
-          limit: Number(data.get('limit')),
-          limiter: data.get('limiter'),
-          nodes,
-        }),
+        await api(
+          service ? 'services/' + service._id : 'services',
+          {
+            version: service?.__v,
+            name: data.get('name'),
+            algorithm: data.get('algorithm'),
+            limit: Number(data.get('limit')),
+            limiter: data.get('limiter'),
+            nodes,
+          },
+          service ? 'PUT' : 'POST',
+        ),
       )
       form.reset()
     } catch (err) {
@@ -52,11 +63,16 @@ export default function GatewayForm({ config, saved }) {
       <form onSubmit={submit}>
         <label>
           Service name
-          <input name="name" maxLength="80" required />
+          <input
+            name="name"
+            defaultValue={service?.name}
+            maxLength="80"
+            required
+          />
         </label>
         <label>
           Load balancing
-          <select name="algorithm">
+          <select name="algorithm" defaultValue={service?.algorithm}>
             {config.algorithms.map((a) => (
               <option key={a}>{a}</option>
             ))}
@@ -64,7 +80,7 @@ export default function GatewayForm({ config, saved }) {
         </label>
         <label>
           Rate policy
-          <select name="limiter">
+          <select name="limiter" defaultValue={service?.limiter}>
             <option value="sliding-window">Sliding window</option>
             <option value="token-bucket">Token bucket</option>
           </select>
@@ -79,7 +95,7 @@ export default function GatewayForm({ config, saved }) {
             type="number"
             min="1"
             max="1000"
-            defaultValue="60"
+            defaultValue={service?.limit ?? 60}
             name="limit"
             required
           />
@@ -91,7 +107,7 @@ export default function GatewayForm({ config, saved }) {
               ? 'Enter a local demo server on ports 4100–4199, or a trusted origin approved for your account.'
               : 'Enter a configured server or a trusted origin approved for your account.'}
           </p>
-          {rows.map(({ origin, id: i, role }) => (
+          {rows.map(({ origin, id: i, role, weight }) => (
             <div key={i} className="node">
               <label className="origin-field">
                 Server origin
@@ -115,7 +131,7 @@ export default function GatewayForm({ config, saved }) {
                 <input
                   name={'weight' + i}
                   type="number"
-                  defaultValue="1"
+                  defaultValue={weight ?? 1}
                   min="1"
                   max="10"
                   required
@@ -153,7 +169,9 @@ export default function GatewayForm({ config, saved }) {
             npm run approve-upstream -- YOUR_EMAIL https://api.example.com
           </code>
         </details>
-        <button disabled={busy}>Register gateway</button>
+        <button disabled={busy}>
+          {service ? 'Save changes' : 'Register gateway'}
+        </button>
         <span role="alert">{error}</span>
       </form>
     </section>

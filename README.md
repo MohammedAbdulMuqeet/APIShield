@@ -28,6 +28,8 @@ Run `npm.cmd run build` from the root to create the frontend production bundle.
 
 ## Demonstrate a gateway
 
+On Home, open **Manage gateway** on a service card to edit its name, routing algorithm, rate policy or upstream nodes. Saving keeps its URL and key. Pause temporarily returns HTTP 503 to clients with a valid key. Resume restores routing. Rotating a key invalidates the old one and displays the replacement once. Deleting a gateway removes its route. Only its owner can perform these actions.
+
 Start three lightweight upstreams in separate terminals from the project root.
 
 ```powershell

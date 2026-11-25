@@ -5,6 +5,7 @@ import { Brand, GatewayGraphic } from '../components/Identity.jsx'
 
 import GatewayHome from './GatewayHome.jsx'
 import Incidents from './Incidents.jsx'
+import ManageGateway from './ManageGateway.jsx'
 const pages = {
   '/': { title: 'Gateway console', label: 'Home', resource: 'services' },
   '/register': {
@@ -23,7 +24,10 @@ export default function GatewayConsole({ user, leave }) {
   const [secret, setSecret] = useState(null)
   const [error, setError] = useState('')
   const [path, setPath] = useState(location.pathname)
-  const page = pages[path] || pages['/']
+  const manageId = path.match(/^\/manage\/([a-f\d]{24})\/?$/i)?.[1]
+  const page = manageId
+    ? { title: 'Manage gateway' }
+    : pages[path] || pages['/']
   useEffect(() => {
     const sync = () => setPath(location.pathname)
     window.addEventListener('popstate', sync)
@@ -38,7 +42,9 @@ export default function GatewayConsole({ user, leave }) {
       timer
     async function refresh() {
       try {
-        const data = await api(page.resource)
+        const data = manageId
+          ? await Promise.all([api('services/' + manageId), api('config')])
+          : await api(page.resource)
         if (active) {
           setSnapshot({ path, data })
           setError('')
@@ -49,7 +55,8 @@ export default function GatewayConsole({ user, leave }) {
           else setError(err.message)
         }
       }
-      if (active && path !== '/register') timer = setTimeout(refresh, 4000)
+      if (active && !manageId && path !== '/register')
+        timer = setTimeout(refresh, 4000)
     }
     refresh()
     return () => {
@@ -104,7 +111,16 @@ export default function GatewayConsole({ user, leave }) {
       </div>
       <p role="alert">{error}</p>
       {snapshot?.path !== path ? (
-        <p>Loading workspace…</p>
+        !error && <p>Loading workspace…</p>
+      ) : manageId ? (
+        <ManageGateway
+          service={snapshot.data[0]}
+          config={snapshot.data[1]}
+          finish={(result) => {
+            setSecret(result || null)
+            navigate('/')
+          }}
+        />
       ) : path === '/register' ? (
         <GatewayForm
           config={snapshot.data}

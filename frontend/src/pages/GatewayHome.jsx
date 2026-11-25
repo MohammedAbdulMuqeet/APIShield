@@ -50,6 +50,10 @@ export default function GatewayHome({ services, secret, dismiss }) {
           {services.map((s) => (
             <section className="panel service" key={s._id}>
               <h3>{s.name}</h3>
+              <p>
+                {s.enabled === false ? 'Paused' : 'Enabled'} ·{' '}
+                <a href={'/manage/' + s._id}>Manage gateway</a>
+              </p>
               <code>/gateway/{s._id}/</code>
               <p>
                 {s.algorithm} · {s.limit} requests/min

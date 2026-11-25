@@ -1,22 +1,37 @@
 const runtime = new Map()
+export const forgetRuntime = (id) => runtime.delete(String(id))
 export function state(service) {
   const id = String(service._id)
-  if (!runtime.has(id))
-    runtime.set(id, {
-      cursor: 0,
-      windows: new Map(),
-      signals: new Map(),
-      backup: false,
-      nodes: service.nodes.map((node) => ({
-        ...node.toObject(),
+  const previous = runtime.get(id)
+  if (previous && previous.version === service.__v) return previous
+  const stale = previous && previous.version > service.__v
+  const retained = new Map(
+    (stale ? [] : previous?.nodes || []).map((node) => [node.origin, node]),
+  )
+  const ratePolicy = service.limiter + ':' + service.limit
+  const current = {
+    version: service.__v,
+    ratePolicy,
+    cursor: 0,
+    windows:
+      !stale && previous?.ratePolicy === ratePolicy
+        ? previous.windows
+        : new Map(),
+    signals: previous?.signals || new Map(),
+    backup: previous?.backup || false,
+    nodes: service.nodes.map((node) => {
+      const entry = retained.get(node.origin) || {
         active: 0,
         requests: 0,
         failures: 0,
         until: 0,
         probing: false,
-      })),
-    })
-  return runtime.get(id)
+      }
+      return Object.assign(entry, node.toObject())
+    }),
+  }
+  if (!stale) runtime.set(id, current)
+  return current
 }
 export const circuit = (node) =>
   node.probing

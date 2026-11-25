@@ -104,11 +104,23 @@ test(
       await page.getByLabel('Password').fill('browser password 123')
       await page.getByRole('button', { name: 'Sign in' }).click()
       await page.getByRole('heading', { name: 'Browser gateway' }).waitFor()
+      await page.getByRole('link', { name: 'Manage gateway' }).click()
+      assert.equal(
+        await page.getByLabel('Service name').inputValue(),
+        'Browser gateway',
+      )
+      await page.getByRole('button', { name: 'Pause gateway' }).click()
+      await page.getByRole('button', { name: 'Resume gateway' }).click()
+      await page.getByLabel('Service name').fill('Updated browser gateway')
+      await page.getByRole('button', { name: 'Save changes' }).click()
+      await page
+        .getByRole('heading', { name: 'Updated browser gateway' })
+        .waitFor()
     }
     let cookie = ''
-    function api(path, body) {
+    function api(path, body, method = body ? 'POST' : 'GET') {
       return fetch(base + '/api/' + path, {
-        method: body ? 'POST' : 'GET',
+        method,
         headers: { cookie, 'content-type': 'application/json' },
         body: body && JSON.stringify(body),
       })
@@ -223,6 +235,26 @@ test(
       'recovered',
     ])
       assert.ok(messages.includes(word))
+    const endpoint = 'services/' + weighted.id
+    const original = await (await api(endpoint)).json()
+    const edit = {
+      ...original,
+      version: original.__v,
+      nodes: [{ origin: origins[1], weight: 1, backup: false }],
+    }
+    assert.equal((await api(endpoint, edit, 'PUT')).status, 204)
+    assert.equal((await api(endpoint, edit, 'PUT')).status, 409)
+    assert.match(await (await gateway(weighted)).text(), /^b GET/)
+    assert.equal(
+      (await api(endpoint + '/status', { enabled: false }, 'PATCH')).status,
+      200,
+    )
+    assert.equal((await gateway(weighted)).status, 503)
+    await api(endpoint + '/status', { enabled: true }, 'PATCH')
+    const renewed = await (await api(endpoint + '/key', {})).json()
+    assert.equal((await gateway(weighted)).status, 401)
+    assert.equal((await gateway(renewed)).status, 200)
+    const ownerCookie = cookie
     const other = await api('auth/signup', {
       ...account,
       email: 'other@example.test',
@@ -231,5 +263,16 @@ test(
     assert.equal((await api('services', custom)).status, 400)
     assert.deepEqual(await (await api('services')).json(), [])
     assert.deepEqual(await (await api('events')).json(), [])
+    assert.equal((await api(endpoint)).status, 404)
+    assert.equal((await api(endpoint, edit, 'PUT')).status, 404)
+    assert.equal((await api(endpoint + '/key', {})).status, 404)
+    assert.equal(
+      (await api(endpoint + '/status', { enabled: false }, 'PATCH')).status,
+      404,
+    )
+    assert.equal((await api(endpoint, {}, 'DELETE')).status, 404)
+    cookie = ownerCookie
+    assert.equal((await api(endpoint, {}, 'DELETE')).status, 204)
+    assert.equal((await gateway(renewed)).status, 404)
   },
 )
