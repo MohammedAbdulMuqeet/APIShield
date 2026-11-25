@@ -21,7 +21,7 @@ export default function Workspaces({ current, reload }) {
     }
   }
   const membersPath = 'workspaces/' + current?.id + '/members/'
-  return <details className="panel">
+  return <details className="workspace-management">
     <summary>Manage workspaces</summary>
     <form onSubmit={submit(async data => selectWorkspace((await api('workspaces', data)).id))}>
       <label>Organization name<input name="name" required maxLength={80} /></label>

@@ -100,3 +100,33 @@ nav a[aria-current="page"] { color: var(--gold); text-decoration: underline; } .
 figure { margin:1rem 0; }
 .panel details { overflow-x:auto; }
 .panel table { width:100%;text-align:left;font-size:.85rem; }
+.workspace-menu { position: relative; }
+.workspace-menu > summary {
+  padding: 10px 12px;
+  border: 1px solid var(--edge);
+  border-radius: 7px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.workspace-menu-content {
+  position: absolute;
+  z-index: 5;
+  top: calc(100% + 8px);
+  right: 0;
+  width: min(360px, calc(100vw - 36px));
+  max-height: min(65vh, 540px);
+  overflow: auto;
+  padding: 16px;
+  border: 1px solid var(--edge);
+  border-radius: 10px;
+  background: var(--panel);
+  box-shadow: 0 12px 35px #0008;
+}
+.workspace-management { margin-top: 14px; }
+.workspace-management summary { cursor: pointer; }
+.workspace-management form { margin-top: 14px; }
+@media (max-width: 760px) {
+  .topbar { position: relative; }
+  .workspace-menu { position: static; }
+  .workspace-menu-content { top: 100%; }
+}

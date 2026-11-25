@@ -97,6 +97,20 @@ export default function GatewayConsole({ user, leave }) {
           ))}
         </nav>
         <span className="account">{user.name}</span>
+        <details className="workspace-menu">
+          <summary className="secondary">Workspace</summary>
+          <div className="workspace-menu-content">
+            <label>
+              Switch workspace
+              <select value={workspaceId || ''} onChange={event => selectWorkspace(event.target.value)}>
+                <option value="">Personal workspace</option>
+                {workspaceId && !current && <option value={workspaceId}>Selected workspace</option>}
+                {spaces.map(space => <option key={space.id} value={space.id}>{space.name} ({space.role})</option>)}
+              </select>
+            </label>
+            <Workspaces current={current} reload={reloadSpaces} />
+          </div>
+        </details>
         <button
           className="secondary"
           onClick={async () => {
@@ -111,14 +125,6 @@ export default function GatewayConsole({ user, leave }) {
           Sign out
         </button>
       </header>
-      <label>Workspace
-        <select value={workspaceId || ''} onChange={e => selectWorkspace(e.target.value)}>
-          <option value="">Personal workspace</option>
-          {workspaceId && !current && <option value={workspaceId}>Selected workspace</option>}
-          {spaces.map(s => <option key={s.id} value={s.id}>{s.name} ({s.role})</option>)}
-        </select>
-      </label>
-      <Workspaces current={current} reload={reloadSpaces} />
       <div className="hero">
         <h1>{page.title}</h1>
         <GatewayGraphic />
