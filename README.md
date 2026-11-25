@@ -54,4 +54,20 @@ Passwords use bcrypt with cost 12. JWT sessions use HttpOnly, SameSite=Strict co
 
 ## Verification
 
-With MongoDB running on the default local port, run `node --test backend/src/integration.test.js`. Set `TEST_BROWSER` to the full path of a Chromium or Edge executable to include the browser signup, registration, refresh, logout and login workflow. Tests create and remove a uniquely named test database.
+With MongoDB running on the default local port, run `npm.cmd test`. Set `TEST_BROWSER` to the full path of a Chromium or Edge executable to include the browser signup, registration, refresh, logout and login workflow. Tests create and remove a uniquely named test database.
+
+## Code layout
+
+| Location | Responsibility |
+| --- | --- |
+| backend/src/server.js | Connect to MongoDB, initialize indexes and start listening. |
+| backend/src/app.js | Assemble parsers, middleware and routers. |
+| backend/src/routes | Map HTTP endpoints to controllers and apply access checks. |
+| backend/src/controllers | Translate HTTP input into service calls and send the result. |
+| backend/src/services | Implement account and session rules, gateway registration, routing, forwarding, rate limits and incident recording. |
+| backend/src/models | Define MongoDB schemas and indexes for users, sessions, registered services and events. |
+| backend/src/config and middleware | Provide gateway configuration, session checks and consistent HTTP errors. |
+| frontend/src | Render account and console pages, submit gateway settings and share one HTTP client. |
+| backend/tests | Exercise the application through HTTP and optionally through a browser. |
+
+The dashboard uses a session cookie to manage its owner's gateways. A client calling a registered gateway uses the service's API key. A request goes through key verification, rate limiting, node selection and forwarding in that order. The console reads per-node counters and saved incidents through the authenticated management routes.
