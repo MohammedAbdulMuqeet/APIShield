@@ -2,29 +2,47 @@
 
 APIShield provides account-scoped gateways, reverse proxying, load balancing, automatic failover, circuit breakers, rate limiting and incident detection. Create an account at `/signup` or sign in at `/login`.
 
-## Local development on Windows
+## Quick start
 
-Use Node.js LTS and MongoDB Community Server. From the project root, install dependencies with `npm.cmd ci`. On this PC, MongoDB runs as a user process. After restarting Windows, start it in a PowerShell terminal and keep that terminal open.
+Install Git and [Node.js 24 LTS](https://nodejs.org/en/download). Use [MongoDB Community Server](https://www.mongodb.com/docs/manual/administration/install-community/) 7.0 or newer, or let Docker Compose start MongoDB 8.0 for you. MongoDB 7.0 introduced the percentile aggregation used by Trends.
 
-```powershell
-& "$env:LOCALAPPDATA\Programs\MongoDB-9.0.8\MongoDB\Server\9.0\bin\mongod.exe" --dbpath "$env:LOCALAPPDATA\APIShield\mongodb" --bind_ip 127.0.0.1
+```sh
+git clone https://github.com/MohammedAbdulMuqeet/APIShield.git
+cd APIShield
+npm ci
 ```
 
-Start the backend and frontend in separate PowerShell terminals.
+Start your local MongoDB service on port 27017. If you use Docker Compose, run this instead.
 
-```powershell
-npm.cmd run dev:backend
+```sh
+docker compose up -d --wait mongo
 ```
 
-```powershell
-npm.cmd run dev:frontend
+Start the frontend and backend together from the project root.
+
+```sh
+npm run dev
 ```
 
-Open the local URL printed by Vite. The default backend health endpoint is `http://127.0.0.1:3001/api/health`. Refresh the page to check the connection again.
+Open [APIShield](http://127.0.0.1:5173) and create an account. The app listens locally. Use Ctrl+C to stop it. On Windows PowerShell, use `npm.cmd` wherever the examples say `npm` if PowerShell blocks `npm.ps1`.
 
-The backend uses `mongodb://127.0.0.1:27017/apishield` by default. To use another MongoDB deployment, set `$env:MONGODB_URI` in the backend terminal before starting the server.
+### Run the populated demo
 
-Run `npm.cmd run build` from the root to create the frontend production bundle.
+With local MongoDB running, seed the demo and start the app with three local upstreams. Stop a previous `npm run dev` first so the ports are free.
+
+```sh
+npm run seed:demo
+npm run dev -- --demo
+```
+
+Sign in with `demo@apishield.example` and password `APIShield-Demo-2026!`. Use **Workspace → Switch workspace** to open Store Team or Operations Team. Sign in as `editor@apishield.example` or `viewer@apishield.example` with the same password to try their roles. The seed targets the default local database and refreshes demo traffic and incidents without duplicating rows. Issue a key under **Manage gateway → Client keys** to send a live request to a seeded gateway.
+
+### Configuration and troubleshooting
+
+- `MONGODB_URI` defaults to `mongodb://127.0.0.1:27017/apishield`. Set it in the shell running the app to use a different database.
+- The frontend uses port 5173 and Express uses 3001. Set `FRONTEND_PORT` or `PORT` in that shell if a port is occupied. Demo mode also needs ports 4101 through 4103.
+- A startup connection error usually means MongoDB is stopped or the URI is incorrect. Once the app is up, check [API health](http://127.0.0.1:5173/api/health).
+- Run `npm run build` to create the frontend bundle. Run `docker compose down` to stop the optional database container while keeping its volume.
 
 ## Demonstrate a gateway
 
@@ -38,7 +56,7 @@ Enable **Active health checks** in gateway settings and specify an endpoint such
 
 **Trends** shows completed request volume, upstream HTTP 5xx as a share of forwarding attempts, and approximate p95 gateway latency. Retries count as upstream attempts and health probes are excluded. MongoDB retains request measurements for seven days.
 
-On Home, open **Manage gateway** on a service card to edit its name, routing algorithm, rate policy or upstream nodes. Saving keeps its URL and key. Pause temporarily returns HTTP 503 to clients with a valid key. Resume restores routing. Rotating a key invalidates the old one and displays the replacement once. Deleting a gateway removes its route. Only its owner can perform these actions.
+On Home, open **Manage gateway** on a service card to edit its name, routing algorithm, rate policy or upstream nodes. Saving keeps its URL and key. Pause temporarily returns HTTP 503 to clients with a valid key. Resume restores routing. Rotating a key invalidates the old one and displays the replacement once. Deleting a gateway removes its route. These actions are available in your personal workspace and in team workspaces where you have owner or editor access.
 
 Start three lightweight upstreams in separate terminals from the project root.
 
