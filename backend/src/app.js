@@ -2,7 +2,8 @@ import express from 'express'
 import mongoose from 'mongoose'
 import helmet from 'helmet'
 import { auth } from './routes/auth.js'
-import { gateway, management } from './gateway.js'
+import { gateway } from './routes/gateway.js'
+import { management } from './routes/management.js'
 import { handleError } from './middleware/errors.js'
 
 export const app = express()
